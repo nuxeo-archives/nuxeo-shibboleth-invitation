@@ -2,13 +2,13 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>org.nuxeo</groupId>
-    <artifactId>nuxeo-addons-parent</artifactId>
-    <version>7.10-HF35-SNAPSHOT</version>
+    <groupId>fr.udl.nuxeo</groupId>
+    <artifactId>package_parent</artifactId>
+    <version>1.0-SNAPSHOT</version>
   </parent>
 
-  <groupId>org.nuxeo.shibboleth.invitation</groupId>
-  <artifactId>nuxeo-shibboleth-invitation</artifactId>
+  <groupId>${marketplace.bundle.groupId}</groupId>
+  <artifactId>nuxeo-shibboleth-invitation-udl</artifactId>
   <name>nuxeo-shibboleth-invitation</name>
   <description>
     This addon provides the ability to invite external users to join Nuxeo

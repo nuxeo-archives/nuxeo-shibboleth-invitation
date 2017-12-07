@@ -64,32 +64,37 @@ public class ShibbolethUserMapper implements UserMapper {
 
     @Override
     public NuxeoPrincipal getOrCreateAndUpdateNuxeoPrincipal(Object userObject) {
+        log.trace("fuck getOrCreateAndUpdateNuxeoPrincipal");
         return getOrCreateAndUpdateNuxeoPrincipal(userObject, true, true, null);
     }
 
     protected UserInvitationService fetchService() {
+        log.trace("fuck fetchService");
         return Framework.getLocalService(UserRegistrationService.class);
     }
 
     @Override
     public NuxeoPrincipal getOrCreateAndUpdateNuxeoPrincipal(Object userObject, boolean createIfNeeded, boolean update,
             Map<String, Serializable> params) {
-
+        log.trace("fuck getOrCreateAndUpdateNuxeoPrincipal");
         // Fetching keys from the shibboleth configuration in nuxeo
         ShibbolethAuthenticationService shiboService = Framework.getService(ShibbolethAuthenticationService.class);
-        BiMap<String, String> metadata = shiboService.getUserMetadata();
-        String usernameKey = MoreObjects.firstNonNull(metadata.get("username"), "username");
-        String lastNameKey = MoreObjects.firstNonNull(metadata.get("lastName"), "lastName");
-        String firstNameKey = MoreObjects.firstNonNull(metadata.get("firstName"), "firstName");
-        String emailKey = MoreObjects.firstNonNull(metadata.get("email"), "email");
-        String companyKey = MoreObjects.firstNonNull(metadata.get("company"), "company");
-        String passwordKey = MoreObjects.firstNonNull(metadata.get("password"), "password");
+//        BiMap<String, String> metadata = shiboService.getUserMetadata();
+//        String usernameKey = MoreObjects.firstNonNull(metadata.get("username"), "username");
+//        String lastNameKey = MoreObjects.firstNonNull(metadata.get("lastName"), "lastName");
+//        String firstNameKey = MoreObjects.firstNonNull(metadata.get("firstName"), "firstName");
+//        String emailKey = MoreObjects.firstNonNull(metadata.get("email"), "email");
+//        String companyKey = MoreObjects.firstNonNull(metadata.get("company"), "company");
+//        String passwordKey = MoreObjects.firstNonNull(metadata.get("password"), "password");
+//
+//        String email = (String) ((Map) userObject).get(emailKey);
+//        ShibbolethUserInfo userInfo = new ShibbolethUserInfo((String) ((Map) userObject).get(usernameKey),
+//                (String) ((Map) userObject).get(passwordKey), (String) ((Map) userObject).get(firstNameKey),
+//                (String) ((Map) userObject).get(lastNameKey), (String) ((Map) userObject).get(companyKey), email);
 
-        String email = (String) ((Map) userObject).get(emailKey);
-        ShibbolethUserInfo userInfo = new ShibbolethUserInfo((String) ((Map) userObject).get(usernameKey),
-                (String) ((Map) userObject).get(passwordKey), (String) ((Map) userObject).get(firstNameKey),
-                (String) ((Map) userObject).get(lastNameKey), (String) ((Map) userObject).get(companyKey), email);
 
+        ShibbolethUserInfo userInfo = new ShibbolethUserInfo((String)((Map)userObject).get("username"), (String)((Map)userObject).get("password"), (String)((Map)userObject).get("firstName"), (String)((Map)userObject).get("lastName"), (String)((Map)userObject).get("company"), (String)((Map)userObject).get("email"));
+        String email = (String)((Map)userObject).get("email");
         // Check if email has been provided and if invitation has been assigned to a user with email as username
         DocumentModel userDoc = null;
         String userName = userInfo.getUserName();
@@ -111,7 +116,8 @@ public class ShibbolethUserMapper implements UserMapper {
         return userManager.getPrincipal(userId);
     }
 
-    protected void updateACP(String userName, String email, DocumentModel userDoc) {
+    protected void updateACP(final String userName,final String email, final DocumentModel userDoc) {
+        log.trace("fuck updateACP");
         new UnrestrictedSessionRunner(getTargetRepositoryName()) {
             @Override
             public void run() {
@@ -119,7 +125,10 @@ public class ShibbolethUserMapper implements UserMapper {
                 NuxeoPrincipal principal = userManager.getPrincipal(
                         (String) userDoc.getProperty(userSchemaName, "username"));
                 ArrayList<String> groups = new ArrayList<>(principal.getGroups());
-
+                log.trace("group for user " + userName + ":" + principal.getPrincipalId() + ":" + principal.getEmail());
+                for(String group: groups) {
+                    log.trace(group);
+                }
                 userManager.deleteUser(userDoc);
                 userDoc.setPropertyValue("user:username", userName);
                 userDoc.setPropertyValue("user:groups", groups);
@@ -162,6 +171,7 @@ public class ShibbolethUserMapper implements UserMapper {
     }
 
     protected DocumentModel createUser(ShibbolethUserInfo userInfo) {
+        log.trace("fuck createUser");
         DocumentModel userDoc;
         try {
             userDoc = userManager.getBareUserModel();
@@ -178,12 +188,14 @@ public class ShibbolethUserMapper implements UserMapper {
 
     @Override
     public void init(Map<String, String> params) throws Exception {
+        log.trace("fuck init");
         userManager = Framework.getLocalService(UserManager.class);
         userSchemaName = userManager.getUserSchemaName();
         groupSchemaName = userManager.getGroupSchemaName();
     }
 
     private DocumentModel findUser(String field, String userName) {
+        log.trace("fuck findUser");
         Map<String, Serializable> query = new HashMap<>();
         query.put(field, userName);
         DocumentModelList users = userManager.searchUsers(query, null);
@@ -195,11 +207,20 @@ public class ShibbolethUserMapper implements UserMapper {
     }
 
     private DocumentModel updateUser(DocumentModel userDoc, ShibbolethUserInfo userInfo) {
+        log.trace("fuck updateUser");
+        NuxeoPrincipal principal = userManager.getPrincipal(
+                (String) userDoc.getProperty(userSchemaName, "username"));
+        ArrayList<String> groups = new ArrayList<>(principal.getGroups());
+        log.trace("group for user :" + userDoc.getProperty(userSchemaName, "username") + ":" + principal.getEmail());
+        for(String group: groups) {
+            log.trace(group);
+        }
         userDoc.setPropertyValue(userManager.getUserEmailField(), userInfo.getEmail());
         userDoc.setProperty(userSchemaName, "firstName", userInfo.getFirstName());
         userDoc.setProperty(userSchemaName, "lastName", userInfo.getLastName());
         userDoc.setProperty(userSchemaName, "password", userInfo.getPassword());
         userDoc.setProperty(userSchemaName, "company", userInfo.getCompany());
+        userDoc.setPropertyValue("user:groups", groups);
         userManager.updateUser(userDoc);
         return userDoc;
     }
@@ -207,14 +228,17 @@ public class ShibbolethUserMapper implements UserMapper {
     @Override
     public Object wrapNuxeoPrincipal(NuxeoPrincipal principal, Object nativePrincipal,
             Map<String, Serializable> params) {
+        log.trace("fuck wrapNuxeoPrincipal");
         throw new UnsupportedOperationException();
     }
 
     @Override
     public void release() {
+        log.trace("fuck release");
     }
 
     public String getTargetRepositoryName() {
+        log.trace("fuck getTargetRepositoryName");
         return Framework.getService(RepositoryManager.class).getDefaultRepositoryName();
     }
 }

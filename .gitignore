@@ -12,6 +12,8 @@ pojo-bin
 seam-bin
 deploy.sh
 log/
+.idea
+nuxeo-shibboleth-invitation.iml
 
 *.pyc
 *~
