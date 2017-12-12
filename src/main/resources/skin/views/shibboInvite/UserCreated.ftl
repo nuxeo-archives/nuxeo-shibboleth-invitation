@@ -7,6 +7,7 @@
 <@block name="content">
 <script>
 	setTimeout(function(){window.location.replace("${redirectUrl}")},5000);
+    console.log("${redirectUrl}");
 </script>
   
 <div class="info">
