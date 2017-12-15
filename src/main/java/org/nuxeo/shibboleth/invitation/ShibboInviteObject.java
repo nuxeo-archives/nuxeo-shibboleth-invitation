@@ -59,7 +59,7 @@ public class ShibboInviteObject extends ModuleRoot {
     private static final Log log = LogFactory.getLog(ShibboInviteObject.class);
 
     private DocumentModel findUser(String field, String userName) {
-        log.trace("fuck findUser");
+        log.trace("findUser");
         Map<String, Serializable> query = new HashMap<>();
         query.put(field, userName);
         DocumentModelList users = Framework.getLocalService(UserManager.class).searchUsers(query, null);
@@ -73,19 +73,19 @@ public class ShibboInviteObject extends ModuleRoot {
     @GET
     @Path("shibboleth")
     public Object mapShibbolethUser(@Context HttpServletRequest httpServletRequest, @QueryParam("RequestId") final String requestID) {
-        log.info("requestID:" + requestID);
-        log.info("principal:" + getContext().getUserSession().getPrincipal());
+        log.trace("requestID:" + requestID);
+        log.trace("principal:" + getContext().getUserSession().getPrincipal());
         ShibbolethAuthenticationService shiboService = Framework.getService(ShibbolethAuthenticationService.class);
         final String userID = shiboService.getUserID(httpServletRequest);
-        log.info("userID:" + userID);
-        log.info("getUserInfoUsernameField:" +Framework.getLocalService(UserRegistrationService.class).getConfiguration(DEFAULT_REGISTRATION).getUserInfoUsernameField());
+        log.trace("userID:" + userID);
+        log.trace("getUserInfoUsernameField:" +Framework.getLocalService(UserRegistrationService.class).getConfiguration(DEFAULT_REGISTRATION).getUserInfoUsernameField());
         new UnrestrictedSessionRunner(Framework.getService(RepositoryManager.class).getDefaultRepositoryName()) {
             @Override
             public void run() {
                 DocumentModel doc = session.getDocument(new IdRef(requestID));
                 // "userinfo:login"
                 doc.setPropertyValue("userinfo:login", userID);
-                log.info("groups:" + doc.getPropertyValue("userinfo:groups"));
+                log.trace("groups:" + doc.getPropertyValue("userinfo:groups"));
                 session.saveDocument(doc);
                 DocumentModel target = session.getDocument(new IdRef(
                         (String) doc.getPropertyValue("docinfo:documentId")));
@@ -175,25 +175,6 @@ public class ShibboInviteObject extends ModuleRoot {
         String webappName = VirtualHostHelper.getWebAppName(getContext().getRequest());
         String redirectUrl = "/" + webappName + "/logout";
         if (isShibbo) {
-//            return getView("UserCreated").arg("data", registrationData)
-//                                         .arg("redirectUrl", "/nuxeo/site/shibboleth?requestedUrl=")
-//                                         .arg("isShibbo", isShibbo);
-
-            /*
-
-
-            <form action="/nuxeo/site/shibboInvite/validate" method="post" enctype="application/x-www-form-urlencoded" name="submitShibboleth">
-        <div>
-            <input type="hidden" id="RequestId" value="9c5e94ec-7089-4ba2-9408-196455aa57ef" name="RequestId">
-            <input type="hidden" id="ConfigurationName" value="default_registration" name="ConfigurationName">
-            <input type="hidden" id="isShibbo" value="true" name="isShibbo">
-            <input type="submit" name="submitShibbo" value="Choose Shibboleth Authentication">
-        </div>
-    </form>
-             */
-
-
-
             String validationRelUrl = "https://nuxeo.universite-lyon.fr/" + usr.getConfiguration(configurationName).getValidationRelUrl()+ "?isShibbo=true&RequestId="+requestId+"&ConfigurationName="+configurationName;
             try {
                 redirectUrl = "/nuxeo/login.jsp?requestedUrl=" + URLEncoder.encode(validationRelUrl, "UTF-8");
@@ -201,10 +182,6 @@ public class ShibboInviteObject extends ModuleRoot {
                 log.error(e.getLocalizedMessage());
             }
             redirectUrl = "/nuxeo/site/shibboInvite/shibboleth?RequestId="+requestId;
-//            return getView("UserCreated").arg("data", registrationData)
-//                             .arg("redirectUrl", redirectUrl)
-//                             .arg("isShibbo", isShibbo);
-//            https://nuxeo.universite-lyon.fr/nuxeo/login.jsp?requestedUrl=
         }
         return getView("UserCreated").arg("redirectUrl", redirectUrl)
                                      .arg("data", registrationData)
