@@ -158,11 +158,10 @@ public class ShibboInviteObject extends ModuleRoot {
             // Add the entered password to the document model
             additionalInfo.put(DefaultInvitationUserFactory.PASSWORD_KEY, password);
             // Validate the creation of the user
-//            registrationData = usr.validateRegistration(requestId, additionalInfo);
-//            NuxeoPrincipalImpl userPrincipal = (NuxeoPrincipalImpl) registrationData.get("registeredUser");
-//            DocumentModelImpl userDoc = (DocumentModelImpl) registrationData.get("registrationDoc");
-//            log.info("userDoc:" + userDoc);
-//            log.info("userPrincipal:" + userPrincipal);
+            if(!isShibbo) {
+                registrationData = usr.validateRegistration(requestId, additionalInfo);
+                log.info("registrate user with normal login");
+            }
         } catch (AlreadyProcessedRegistrationException ape) {
             log.info("Try to validate an already processed registration");
             return getView("ValidationErrorTemplate").arg("exceptionMsg",
