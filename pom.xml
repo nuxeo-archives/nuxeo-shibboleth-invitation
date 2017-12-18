@@ -2,9 +2,9 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>fr.udl.nuxeo</groupId>
-    <artifactId>package_parent</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <groupId>org.nuxeo</groupId>
+    <artifactId>nuxeo-addons-parent</artifactId>
+    <version>7.10-HF36-SNAPSHOT</version>
   </parent>
 
   <groupId>${marketplace.bundle.groupId}</groupId>
