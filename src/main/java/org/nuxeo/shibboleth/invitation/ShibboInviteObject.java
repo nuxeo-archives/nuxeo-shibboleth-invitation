@@ -26,18 +26,14 @@ import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.collect.BiMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nuxeo.ecm.core.api.*;
-import org.nuxeo.ecm.core.api.impl.DocumentModelImpl;
 import org.nuxeo.ecm.core.api.repository.RepositoryManager;
 import org.nuxeo.ecm.core.api.security.ACE;
 import org.nuxeo.ecm.core.api.security.ACL;
 import org.nuxeo.ecm.core.api.security.ACP;
 import org.nuxeo.ecm.platform.shibboleth.service.ShibbolethAuthenticationService;
-import org.nuxeo.ecm.platform.usermanager.NuxeoPrincipalImpl;
 import org.nuxeo.ecm.platform.usermanager.UserManager;
 import org.nuxeo.ecm.platform.web.common.vh.VirtualHostHelper;
 import org.nuxeo.ecm.user.invite.AlreadyProcessedRegistrationException;
@@ -75,8 +71,7 @@ public class ShibboInviteObject extends ModuleRoot {
     public Object mapShibbolethUser(@Context HttpServletRequest httpServletRequest, @QueryParam("RequestId") final String requestID) {
         log.trace("requestID:" + requestID);
         log.trace("principal:" + getContext().getUserSession().getPrincipal());
-        ShibbolethAuthenticationService shiboService = Framework.getService(ShibbolethAuthenticationService.class);
-        final String userID = shiboService.getUserID(httpServletRequest);
+        final String userID = Framework.getService(ShibbolethAuthenticationService.class).getUserID(httpServletRequest);
         log.trace("userID:" + userID);
         log.trace("getUserInfoUsernameField:" +Framework.getLocalService(UserRegistrationService.class).getConfiguration(DEFAULT_REGISTRATION).getUserInfoUsernameField());
         new UnrestrictedSessionRunner(Framework.getService(RepositoryManager.class).getDefaultRepositoryName()) {
@@ -121,7 +116,6 @@ public class ShibboInviteObject extends ModuleRoot {
         String requestId = formData.getString("RequestId");
         String password = formData.getString("Password");
         String passwordConfirmation = formData.getString("PasswordConfirmation");
-        String configurationName = formData.getString("ConfigurationName");
 
         // Check if the requestId is an existing one
         try {
@@ -175,12 +169,6 @@ public class ShibboInviteObject extends ModuleRoot {
         String webappName = VirtualHostHelper.getWebAppName(getContext().getRequest());
         String redirectUrl = "/" + webappName + "/logout";
         if (isShibbo) {
-            String validationRelUrl = "https://nuxeo.universite-lyon.fr/" + usr.getConfiguration(configurationName).getValidationRelUrl()+ "?isShibbo=true&RequestId="+requestId+"&ConfigurationName="+configurationName;
-            try {
-                redirectUrl = "/nuxeo/login.jsp?requestedUrl=" + URLEncoder.encode(validationRelUrl, "UTF-8");
-            } catch (UnsupportedEncodingException e) {
-                log.error(e.getLocalizedMessage());
-            }
             redirectUrl = "/nuxeo/site/shibboInvite/shibboleth?RequestId="+requestId;
         }
         return getView("UserCreated").arg("redirectUrl", redirectUrl)
