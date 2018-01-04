@@ -17,18 +17,24 @@
 package org.nuxeo.shibboleth.invitation;
 
 import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.ws.rs.FormParam;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.nuxeo.ecm.core.api.*;
+import org.nuxeo.ecm.core.api.repository.RepositoryManager;
+import org.nuxeo.ecm.core.api.security.ACE;
+import org.nuxeo.ecm.core.api.security.ACL;
+import org.nuxeo.ecm.core.api.security.ACP;
+import org.nuxeo.ecm.platform.shibboleth.service.ShibbolethAuthenticationService;
+import org.nuxeo.ecm.platform.usermanager.UserManager;
 import org.nuxeo.ecm.platform.web.common.vh.VirtualHostHelper;
 import org.nuxeo.ecm.user.invite.AlreadyProcessedRegistrationException;
 import org.nuxeo.ecm.user.invite.DefaultInvitationUserFactory;
@@ -45,7 +51,61 @@ import org.nuxeo.runtime.api.Framework;
 @WebObject(type = "shibboInvite")
 @Produces("text/html;charset=UTF-8")
 public class ShibboInviteObject extends ModuleRoot {
+    public static final String DEFAULT_REGISTRATION = "default_registration";
     private static final Log log = LogFactory.getLog(ShibboInviteObject.class);
+
+    private DocumentModel findUser(String field, String userName) {
+        log.trace("findUser");
+        Map<String, Serializable> query = new HashMap<>();
+        query.put(field, userName);
+        DocumentModelList users = Framework.getLocalService(UserManager.class).searchUsers(query, null);
+
+        if (users.isEmpty()) {
+            return null;
+        }
+        return users.get(0);
+    }
+
+    @GET
+    @Path("shibboleth")
+    public Object mapShibbolethUser(@Context HttpServletRequest httpServletRequest, @QueryParam("RequestId") final String requestID) {
+        log.trace("requestID:" + requestID);
+        log.trace("principal:" + getContext().getUserSession().getPrincipal());
+        final String userID = Framework.getService(ShibbolethAuthenticationService.class).getUserID(httpServletRequest);
+        log.trace("userID:" + userID);
+        log.trace("getUserInfoUsernameField:" +Framework.getLocalService(UserRegistrationService.class).getConfiguration(DEFAULT_REGISTRATION).getUserInfoUsernameField());
+        new UnrestrictedSessionRunner(Framework.getService(RepositoryManager.class).getDefaultRepositoryName()) {
+            @Override
+            public void run() {
+                DocumentModel doc = session.getDocument(new IdRef(requestID));
+                // "userinfo:login"
+                doc.setPropertyValue("userinfo:login", userID);
+                log.trace("groups:" + doc.getPropertyValue("userinfo:groups"));
+                session.saveDocument(doc);
+                DocumentModel target = session.getDocument(new IdRef(
+                        (String) doc.getPropertyValue("docinfo:documentId")));
+                NuxeoPrincipal targetPrincipal = Framework.getLocalService(UserManager.class).getPrincipal(userID);
+                ACP acp = target.getACP();
+                Map<String, Serializable> contextData = new HashMap<>();
+                contextData.put("notify", true);
+                contextData.put("comment", doc.getPropertyValue("registration:comment"));
+                acp.addACE(ACL.LOCAL_ACL,
+                        ACE.builder(targetPrincipal.getName(), (String) doc.getPropertyValue("docinfo:permission"))
+                                .creator((String) doc.getPropertyValue("docinfo:creator"))
+                                .contextData(contextData)
+                                .build());
+                target.setACP(acp, true);
+                java.util.List<String> userGroups = targetPrincipal.getGroups();
+                userGroups.addAll((java.util.List<String>)doc.getPropertyValue("userinfo:groups"));
+                targetPrincipal.setGroups(userGroups);
+                Framework.getLocalService(UserManager.class).updateUser(targetPrincipal.getModel());
+                session.saveDocument(target);
+
+            }
+        }.runUnrestricted();
+        return getView("UserCreated").arg("redirectUrl", "/");
+    }
+
 
     @POST
     @Path("validate")
@@ -86,13 +146,16 @@ public class ShibboInviteObject extends ModuleRoot {
                         ctx.getMessage("label.registerForm.validation.passwordvalidation"), formData);
             }
         }
-        Map<String, Serializable> registrationData;
+        Map<String, Serializable> registrationData = null;
         try {
             Map<String, Serializable> additionalInfo = buildAdditionalInfos();
             // Add the entered password to the document model
             additionalInfo.put(DefaultInvitationUserFactory.PASSWORD_KEY, password);
             // Validate the creation of the user
-            registrationData = usr.validateRegistration(requestId, additionalInfo);
+            if(!isShibbo) {
+                registrationData = usr.validateRegistration(requestId, additionalInfo);
+                log.info("registrate user with normal login");
+            }
         } catch (AlreadyProcessedRegistrationException ape) {
             log.info("Try to validate an already processed registration");
             return getView("ValidationErrorTemplate").arg("exceptionMsg",
@@ -100,15 +163,13 @@ public class ShibboInviteObject extends ModuleRoot {
         } catch (UserRegistrationException ue) {
             log.warn("Unable to validate registration request", ue);
             return getView("ValidationErrorTemplate").arg("exceptionMsg",
-                    ctx.getMessage("label.errror.requestNotAccepted"));
+                    ctx.getMessage("label.error.requestNotAccepted"));
         }
         // User redirected to the logout page after validating the password
         String webappName = VirtualHostHelper.getWebAppName(getContext().getRequest());
         String redirectUrl = "/" + webappName + "/logout";
         if (isShibbo) {
-            return getView("UserCreated").arg("data", registrationData)
-                                         .arg("redirectUrl", "/nuxeo/site/shibboleth?requestedUrl=")
-                                         .arg("isShibbo", isShibbo);
+            redirectUrl = "/nuxeo/site/shibboInvite/shibboleth?RequestId="+requestId;
         }
         return getView("UserCreated").arg("redirectUrl", redirectUrl)
                                      .arg("data", registrationData)

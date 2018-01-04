@@ -24,7 +24,9 @@ import org.nuxeo.ecm.platform.api.login.UserIdentificationInfo;
 
 /**
  * @since 7.4
+ * @deprecated
  */
+@Deprecated
 public class ShibbolethUserInfo extends UserIdentificationInfo {
 
     private static final long serialVersionUID = 6894397878763275157L;
